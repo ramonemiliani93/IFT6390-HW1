@@ -71,49 +71,93 @@ def load_dataset(type, feature):
     return np.reshape(feature, (feature.size, 1))
 
 
-def plot_1d(dataset, x_data, y_data, min, max, legend_titles):
-    plt.scatter(dataset, np.zeros_like(dataset), label='Dataset')
-    for i in range(0, y_data.shape[-1]):
-        y = y_data[:, i]
-        plt.plot(x_data, y, label=legend_titles[i])
-    plt.legend()
-    plt.show()
+def plot(dataset, results, dimension):
+    if dimension == 1:
+        plt.scatter(dataset, np.zeros_like(dataset), label='Dataset')
+        for x, y, label in results:
+            plt.plot(x, y, label=label)
+        plt.legend()
+        plt.show()
+    elif dimension == 2:
+        plt.scatter(dataset[:, 0], dataset[:, 1], label='Dataset')
+        for x, y, label in results:
+            plt.contour(x[0], x[1], y, label=label)
+        plt.legend()
+        plt.show()
+    else:
+        print("Can't plot data in that dimension")
 
 
 if __name__ == "__main__":
+    # ONE DIMENSION EXERCISE
     N = 100
     dataset = load_dataset(0, 1)
     min = np.min(dataset)
     max = np.max(dataset)
     dx = np.linspace(min, max, N).reshape([-1, 1])
+    results = []
     print('The training data has {} rows and {} columns'.format(dataset.shape[0], dataset.shape[-1]))
     # Generating data to plot DGPDE
     dgpde = DGPDE()
     dgpde.train(dataset)
-    dgpde_test = dgpde.test(dx)
+    dgpde_y = dgpde.test(dx)
+    results.append((dx, dgpde_y, 'GPDE'))
     # Generating data to plot PDE with small sigma
     pde = PDE(0.001)
     pde.train(dataset)
-    pde_test_small = pde.test(dx)
+    pde_y_small = pde.test(dx)
+    results.append((dx, pde_y_small, 'PDE $\sigma^2=0.001$'))
     # Generating data to plot PDE with large sigma
     pde = PDE(1)
     pde.train(dataset)
-    pde_test_large = pde.test(dx)
+    pde_y_large = pde.test(dx)
+    results.append((dx, pde_y_large, 'PDE $\sigma^2=1.000$'))
     # Generating data to plot PDE with optimal sigma
     optimal_sigma = 1.06*np.sqrt(np.var(dataset))*dataset.shape[0]**(-1/5) # Silverman's rule of thumb
     pde = PDE(optimal_sigma)
     pde.train(dataset)
-    pde_test_optimal = pde.test(dx)
-    # Stack generated data
-    stack = np.stack((dgpde_test, pde_test_small, pde_test_large, pde_test_optimal), axis=1)
+    pde_y_optimal = pde.test(dx)
+    results.append((dx, pde_y_optimal, 'PDE $\sigma^2={0:.3f}$'.format(optimal_sigma)))
     # Plot data
-    plot_1d(dataset, dx, stack, 0, 0, ['GPDE', 'PDE $\sigma^2=0.001$',
-                                       'PDE $\sigma^2=1.000$', 'PDE $\sigma^2={0:.3f}$'.format(optimal_sigma)])
-    # # TEST
-    # a = np.zeros((10, 1))
-    # pde = PDE(1)
-    # print(a.shape)
-    # pde.train(a)
-    # pde_test_optimal = pde.test(np.array(0).reshape([-1, 1]))
-    # print(pde_test_optimal)
-    # plot_1d(a, np.array(0).reshape([-1, 1]), pde_test_optimal.reshape([-1, 1]), 0, 0, ['A'])
+    plot(dataset, results, 1)
+
+    # TWO DIMENSION EXERCISE
+    N = 100
+    x1 = load_dataset(0, 1)
+    x2 = load_dataset(0, 2)
+    min_x1 = np.min(x1)
+    max_x1 = np.max(x1)
+    min_x2 = np.min(x2)
+    max_x2 = np.max(x2)
+    dataset = np.hstack((x1, x2))
+    print(dataset.shape)
+    dx1 = np.linspace(min_x1, max_x1, N).reshape([-1, 1])
+    dx2 = np.linspace(min_x2, max_x2, N).reshape([-1, 1])
+    grid = np.meshgrid(dx1, dx2)
+    dx = np.hstack((grid[0].reshape([-1, 1]), grid[1].reshape([-1, 1])))
+    results = []
+    print('The training data has {} rows and {} columns'.format(dataset.shape[0], dataset.shape[-1]))
+    # Generating data to plot DGPDE
+    dgpde = DGPDE()
+    dgpde.train(dataset)
+    dgpde_y = dgpde.test(dx)
+    print(dgpde_y.shape)
+    results.append((grid, dgpde_y.reshape(grid[0].shape), 'GPDE'))
+    # Generating data to plot PDE with small sigma
+    pde = PDE(0.001)
+    pde.train(dataset)
+    pde_y_small = pde.test(dx)
+    results.append((grid, pde_y_small.reshape(grid[0].shape), 'PDE $\sigma^2=0.001$'))
+    # Generating data to plot PDE with large sigma
+    pde = PDE(1)
+    pde.train(dataset)
+    pde_y_large = pde.test(dx)
+    results.append((grid, pde_y_large.reshape(grid[0].shape), 'PDE $\sigma^2=1.000$'))
+    # Generating data to plot PDE with optimal sigma
+    optimal_sigma = 1.06 * np.sqrt(np.var(dataset)) * dataset.shape[0] ** (-1 / 5)  # Silverman's rule of thumb
+    pde = PDE(optimal_sigma)
+    pde.train(dataset)
+    pde_y_optimal = pde.test(dx)
+    results.append((grid, pde_y_optimal.reshape(grid[0].shape), 'PDE $\sigma^2={0:.3f}$'.format(optimal_sigma)))
+    # Plot data
+    plot(dataset, results, 2)
