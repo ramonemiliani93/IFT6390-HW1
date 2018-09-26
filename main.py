@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn import datasets
 
 
 class DGPDE:
@@ -21,9 +22,7 @@ class DGPDE:
         """
         self.dimension = train_inputs.shape[-1]
         self.mu = np.mean(train_inputs, axis=0)
-        print('The empirical mean of the training data is: {}'.format(self.mu))
         self.covariance = np.var(train_inputs, axis=0)
-        print('The empirical diagonal covariance matrix of the training data is: {}'.format(self.covariance))
 
     def test(self, test_inputs):
         """
@@ -35,11 +34,8 @@ class DGPDE:
         exponent = -0.5*np.dot(np.dot((x_minus_mu), np.diag(1/self.covariance)), np.transpose(x_minus_mu))
         normalizing_term = np.power((2*np.pi), (self.dimension/2)) * np.sqrt(np.prod(self.covariance))
         prediction = normalizing_term * np.exp(exponent)
-        return prediction
-
-    def plot(self):
-        # TODO
-        pass
+        # return np.log(np.diag(prediction))
+        return np.diag(prediction)
 
 
 class PDE:
@@ -63,24 +59,51 @@ class PDE:
         exponent = -0.5 * np.square(np.linalg.norm(tensor_test_inputs-self.data, axis=1)) / self.variance
         normalizing_term = np.power((2*np.pi), (self.dimension/2)) * np.power(np.sqrt(self.variance), self.dimension)
         gaussian_matrix = normalizing_term * np.exp(exponent)
-        prediction = np.sum(gaussian_matrix, axis=1)/gaussian_matrix.shape[-1]
+        prediction = np.sum(gaussian_matrix, axis=1)/test_inputs.shape[0]
+        # return np.log(prediction)
         return prediction
 
 
-    def plot(self):
-        # TODO
-        pass
+def load_dataset(type, feature):
+    iris_x, iris_y = datasets.load_iris(True)
+    type = iris_x[np.where(iris_y == type)]
+    feature = type[:, feature]
+    return np.reshape(feature, (feature.size, 1))
+
+
+def plot_1d(dataset, x_data, y_data, min, max, legend_titles):
+    plt.scatter(dataset, np.zeros_like(dataset), label='Dataset')
+    for i in range(0, y_data.shape[-1]):
+        y = y_data[:, i]
+        plt.plot(x_data, y, label=legend_titles[i])
+    plt.legend()
+    plt.show()
 
 
 if __name__ == "__main__":
-    mean = [0, 0, 5]
-    cov = [[1, 0, 0], [0, 100, 0], [0, 0, 5]]
-    t_inputs = [[1, 2, 3], [4, 5, 6], [6, 7, 8], [9, 10, 11]]
-    x = np.random.multivariate_normal(mean, cov, 5000)
-    print('The training data has {} rows and {} columns'.format(x.shape[0], x.shape[-1]))
+    N = 100
+    dataset = load_dataset(0, 1)
+    min = np.min(dataset)
+    max = np.max(dataset)
+    dx = np.linspace(min, max, N).reshape([-1, 1])
+    print('The training data has {} rows and {} columns'.format(dataset.shape[0], dataset.shape[-1]))
+    # Generating data to plot DGPDE
     dgpde = DGPDE()
-    dgpde.train(x)
-    dgpde.test(t_inputs)
-    pde = PDE(2)
-    pde.train(x)
-    pde.test(np.array(t_inputs))
+    dgpde.train(dataset)
+    dgpde_test = dgpde.test(dx)
+    # Generating data to plot PDE with small sigma
+    pde = PDE(0.1)
+    pde.train(dataset)
+    pde_test_small = pde.test(dx)
+    # Generating data to plot PDE with large sigma
+    pde = PDE(10)
+    pde.train(dataset)
+    pde_test_large = pde.test(dx)
+    # Generating data to plot PDE with optimal sigma
+    pde = PDE(1)
+    pde.train(dataset)
+    pde_test_optimal = pde.test(dx)
+    # Stack generated data
+    stack = np.stack((dgpde_test, pde_test_small, pde_test_large, pde_test_optimal), axis=1)
+    # Plot data
+    plot_1d(dataset, dx, stack, 0, 0, ['A', 'B', 'C', 'D'])
