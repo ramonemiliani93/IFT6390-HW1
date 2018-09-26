@@ -85,7 +85,7 @@ def plot(dataset, results, dimension):
         plt.legend()
         plt.show()
     else:
-        print("Can't plot data in that dimension")
+        print("Only 1D and 2D plots")
 
 
 if __name__ == "__main__":
