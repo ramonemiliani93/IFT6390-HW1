@@ -56,10 +56,10 @@ class PDE:
 
     def test(self, test_inputs):
         tensor_test_inputs = np.repeat(test_inputs[:, :, np.newaxis], self.data.shape[-1], axis=2)
-        exponent = -0.5 * np.square(np.linalg.norm(tensor_test_inputs-self.data, axis=1)) / self.variance
-        normalizing_term = np.power((2*np.pi), (self.dimension/2)) * np.power(np.sqrt(self.variance), self.dimension)
+        exponent = -0.5 * np.square(np.linalg.norm(tensor_test_inputs-self.data, axis=1, ord=None)) / self.variance
+        normalizing_term = 1/((2*np.pi)**(self.dimension/2) * (np.sqrt(self.variance)**(self.dimension)))
         gaussian_matrix = normalizing_term * np.exp(exponent)
-        prediction = np.sum(gaussian_matrix, axis=1)/test_inputs.shape[0]
+        prediction = np.sum(gaussian_matrix/self.data.shape[-1], axis=1)
         # return np.log(prediction)
         return prediction
 
@@ -92,18 +92,28 @@ if __name__ == "__main__":
     dgpde.train(dataset)
     dgpde_test = dgpde.test(dx)
     # Generating data to plot PDE with small sigma
-    pde = PDE(0.1)
+    pde = PDE(0.001)
     pde.train(dataset)
     pde_test_small = pde.test(dx)
     # Generating data to plot PDE with large sigma
-    pde = PDE(10)
+    pde = PDE(1)
     pde.train(dataset)
     pde_test_large = pde.test(dx)
     # Generating data to plot PDE with optimal sigma
-    pde = PDE(1)
+    optimal_sigma = 1.06*np.sqrt(np.var(dataset))*dataset.shape[0]**(-1/5) # Silverman's rule of thumb
+    pde = PDE(optimal_sigma)
     pde.train(dataset)
     pde_test_optimal = pde.test(dx)
     # Stack generated data
     stack = np.stack((dgpde_test, pde_test_small, pde_test_large, pde_test_optimal), axis=1)
     # Plot data
-    plot_1d(dataset, dx, stack, 0, 0, ['A', 'B', 'C', 'D'])
+    plot_1d(dataset, dx, stack, 0, 0, ['GPDE', 'PDE $\sigma^2=0.001$',
+                                       'PDE $\sigma^2=1.000$', 'PDE $\sigma^2={0:.3f}$'.format(optimal_sigma)])
+    # # TEST
+    # a = np.zeros((10, 1))
+    # pde = PDE(1)
+    # print(a.shape)
+    # pde.train(a)
+    # pde_test_optimal = pde.test(np.array(0).reshape([-1, 1]))
+    # print(pde_test_optimal)
+    # plot_1d(a, np.array(0).reshape([-1, 1]), pde_test_optimal.reshape([-1, 1]), 0, 0, ['A'])
